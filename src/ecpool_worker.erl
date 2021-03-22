@@ -117,7 +117,7 @@ add_disconnect_callback(Pid, OnDisconnect) ->
 
 init([Pool, Id, Mod, Opts]) ->
 	process_flag(trap_exit, true),
-	io:format("~n Worker INIT", []),
+	ct:log("~n Worker INIT", []),
 	State = #state{ pool = Pool, id = Id, mod = Mod, opts = Opts,
 	                start_up_attempts_limit = proplists:get_value(start_up_attempts, Opts, 1),
 	                on_reconnect  = ensure_callback(proplists:get_value(on_reconnect, Opts)),
@@ -231,7 +231,7 @@ connopts([Opt | Opts], Acc) ->
 
 
 init_reconnect(#state{opts = Opts} = State, Error) ->
-	io:format("~n init_reconnect : ~p ", [ init_reconnect ] ),
+	ct:log("~n init_reconnect : ~p ", [ init_reconnect ] ),
 	Secs = proplists:get_value(auto_reconnect, Opts, false),
 	case reconnect(Secs, State) of
 		{stop, AttemptsError} ->
@@ -243,11 +243,11 @@ init_reconnect(#state{opts = Opts} = State, Error) ->
 
 reconnect(_Secs, #state{initiated  = false, connection_attempts = Attempts,
                         start_up_attempts_limit = Limit}) when Attempts >= Limit ->
-	io:format("~n reconnect : ~p 1", [ reconnect ] ),
+	ct:log("~n reconnect : ~p 1", [ reconnect ] ),
 	Error = {unable_to_start_up, {start_up_attempts_limit, Attempts}},
 	{stop, Error};
 reconnect(Secs, State = #state{client = Client, on_disconnect = Disconnect, supervisees = SubPids}) ->
-	io:format("~n reconnect 2 : ~p ", [ reconnect ] ),
+	ct:log("~n reconnect 2 : ~p ", [ reconnect ] ),
 	[erlang:unlink(P) || P <- SubPids, is_pid(P)],
 	handle_disconnect(Client, Disconnect),
 	reconnect_msg(Secs),
@@ -274,22 +274,22 @@ handle_disconnect(Client, Disconnect) ->
 
 connect_internal(#state{connection_attempts = ConAttempts} = State) ->
 	StateUpdated = State#state{connection_attempts = ConAttempts + 1},
-	io:format("~n StateUpdated : ~p ", [ StateUpdated ] ),
+	ct:log("~n StateUpdated : ~p ", [ StateUpdated ] ),
 	try connect(StateUpdated) of
 		{ok, Client} when is_pid(Client) ->
-			io:format("~n connect Client : ~p ", [ Client ] ),
+			ct:log("~n connect Client : ~p ", [ Client ] ),
 			erlang:link(Client),
 			{ok, update_connect_state(StateUpdated, Client, [Client])};
 		{ok, Client, #{supervisees := SupPids} = _SupOpts} when is_list(SupPids) ->
-			io:format("~n connect Client : ~p ", [ Client ] ),
+			ct:log("~n connect Client : ~p ", [ Client ] ),
 			[erlang:link(P) || P <- SupPids],
 			{ok, update_connect_state(StateUpdated, Client, SupPids)};
 		{error, Error} ->
-			io:format("~n connect Error : ~p ", [ Error ] ),
+			ct:log("~n connect Error : ~p ", [ Error ] ),
 			{error, {Error, StateUpdated}}
 	catch
 		_C:Reason:ST ->
-			io:format("~n connect Error : ~p ~p ", [ Reason, ST ] ),
+			ct:log("~n connect Error : ~p ~p ", [ Reason, ST ] ),
 			Error = {Reason, ST},
 			{error, {Error, StateUpdated}}
 	end.
